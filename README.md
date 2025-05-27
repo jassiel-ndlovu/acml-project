@@ -36,7 +36,7 @@ python scripts/test.py
 
 ### Clone repo
 ```bash
-git clone https://github.com/your-username/autoencoder-fraud-detection.git
+git clone https://github.com/jassiel-ndlovu/acml-project.git
 cd acml-project
 ```
 
