@@ -1,0 +1,25 @@
+# Paths
+data:
+  raw: data/raw/Base.csv
+  processed: data/processed/clean_accounts.csv
+  split_dir: data/splits
+  normal_data: data/splits/normal.csv
+  fraud_data: data/splits/fraud.csv
+  checkpoint_path: outputs/checkpoints/autoencoder.pt
+  model_path: outputs/models/autoencoder_final.pt
+
+# Model parameters
+model:
+  # Number of features in the input data
+  input_dim: 30        
+  hidden_dims: [64, 32, 16]
+
+# Training parameters
+training:
+  batch_size: 64
+  learning_rate: 0.001
+  num_epochs: 50
+
+# Environment
+seed: 42
+device: "cuda"
