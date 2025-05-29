@@ -12,22 +12,22 @@ Run the following scripts **in order**:
 
 ### 1. Preprocess the raw data
 ```bash
-python scripts/preprocess.py
+python -m scripts.preprocess
 ```
 
 ### 2. Split into normal and fraudulent data
 ```bash
-python scripts/split_data.py
+python -m scripts.split_data
 ```
 
 ### 3. Train the autoencoder on normal data
 ```bash
-python scripts/train_autoencoder.py
+python -m scripts.train_autoencoder
 ```
 
 ### 4. Evaluate
 ```bash
-python scripts/test.py
+python -m scripts.evaluate
 ```
 
 ---
@@ -38,6 +38,20 @@ python scripts/test.py
 ```bash
 git clone https://github.com/jassiel-ndlovu/acml-project.git
 cd acml-project
+```
+
+### Download the dataset
+```bash
+curl -L -o data.zip https://www.kaggle.com/api/v1/datasets/download/sgpjesus/bank-account-fraud-dataset-neurips-2022
+```
+#### For Linux/macOS
+```bash
+unzip data.zip -d data/raw/
+```
+
+#### For Windows (PowerShell)
+```powershell
+Expand-Archive -Path data.zip -DestinationPath data/raw
 ```
 
 ### Install dependencies

@@ -11,7 +11,7 @@ data:
 # Model parameters
 model:
   # Number of features in the input data
-  input_dim: 30        
+  input_dim: 26        
   hidden_dims: [64, 32, 16]
 
 # Training parameters
