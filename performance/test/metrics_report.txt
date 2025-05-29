@@ -1,0 +1,16 @@
+AUC-ROC Score: 0.4395
+Threshold: 54.8129
+Accuracy: 0.9880
+Precision: 0.0324
+Recall: 0.0029
+F1 Score: 0.0053
+
+Classification Report:
+              precision    recall  f1-score   support
+
+      Normal       0.99      1.00      0.99    247243
+       Fraud       0.03      0.00      0.01      2757
+
+    accuracy                           0.99    250000
+   macro avg       0.51      0.50      0.50    250000
+weighted avg       0.98      0.99      0.98    250000

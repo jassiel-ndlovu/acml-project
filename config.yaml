@@ -1,24 +1,32 @@
 # Paths
 data:
   raw: data/raw/Base.csv
-  processed: data/processed/clean_accounts.csv
+  processed: data/processed/cleaned_base.csv
   split_dir: data/splits
-  normal_data: data/splits/normal.csv
-  fraud_data: data/splits/fraud.csv
+  normal_data: data/splits/train/normal.csv
+  fraud_data: data/splits/train/fraud.csv
+  validation_data: data/splits/validation/validation.csv
+  test_data: data/splits/test/test.csv
   checkpoint_path: outputs/checkpoints/autoencoder.pt
   model_path: outputs/models/autoencoder_final.pt
 
 # Model parameters
 model:
-  # Number of features in the input data
-  input_dim: 30        
+  # There are 32 features in the data, but we drop the target column for Autoencoder
+  input_dim: 31     
+  # 3 layers in Autoencoder, layer 1 (64 units), layer 2 (32 units) and layer 3 (16 units)
   hidden_dims: [64, 32, 16]
 
 # Training parameters
 training:
   batch_size: 64
   learning_rate: 0.001
-  num_epochs: 50
+  num_epochs: 100
+
+# Performance
+performance:
+  test_path: performance/test
+  train_path: performance/train
 
 # Environment
 seed: 42
