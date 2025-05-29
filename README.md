@@ -34,9 +34,23 @@ acml-project/
 │   └── test.py                         
 ├── models/
 │   └── autoencoder.py                  
-├── config/
+├── performance/
+│   ├── train/
+│   │   └── train_eval_metrics.txt  
+│   │   └── training_loss.png
+│   │   └── val_mse_distribution.png  
+│   │   └── val_roc_curve.png 
+│   ├── test/
+│   │   └── confusion_matrix.png  
+│   │   └── training_loss.png
+│   │   └── metrics_report.txt  
+│   │   └── mse_distribution.png
+│   │   └── roc_curve.png
 │   └── config.yaml                     
-├── requirements.txt                                            
+├── requirements.txt
+├── .gitignore
+├── config.yaml  
+├── visualise.ipynb                                            
 └── README.md                               
 ```
 
