@@ -56,29 +56,16 @@ def evaluate():
 
         fpr, tpr, thresholds = roc_curve(y_test, mse)
         auc_score = roc_auc_score(y_test, mse)
-        best_thresh = thresholds[np.argmax(tpr - fpr)]
+        best_thresh = config["model"]["threshold"]
 
-        # ROC curve
-        plt.figure()
-        plt.plot(fpr, tpr, label=f"AUC = {auc_score:.4f}")
-        plt.xlabel("False Positive Rate"); plt.ylabel("True Positive Rate"); plt.title("ROC Curve"); plt.grid(True); plt.legend()
-        plt.savefig(os.path.join(perf_dir, "roc_curve.png")); plt.close()
-
-        # MSE distribution
-        plt.figure()
-        plt.hist(mse[y_test == 0], bins=50, alpha=0.6, label="Normal", color="green")
-        plt.hist(mse[y_test == 1], bins=50, alpha=0.6, label="Fraud", color="red")
-        plt.axvline(best_thresh, color="black", linestyle="--", label=f"Threshold: {best_thresh:.4f}")
-        plt.xlabel("Reconstruction MSE"); plt.ylabel("Frequency"); plt.title("MSE Distribution"); plt.legend(); plt.grid(True)
-        plt.savefig(os.path.join(perf_dir, "mse_distribution.png")); plt.close()
-
-        # Classification metrics
         y_pred = (mse > best_thresh).astype(int)
         acc = accuracy_score(y_test, y_pred)
         prec = precision_score(y_test, y_pred)
         rec = recall_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred)
+        cm = confusion_matrix(y_test, y_pred)
 
+        # - summary
         print(f"\nEvaluation Metrics:")
         print(f"AUC-ROC Score: {auc_score:.4f}")
         print(f"Threshold: {best_thresh:.4f}")
@@ -87,11 +74,7 @@ def evaluate():
         print(f"Recall: {rec:.4f}")
         print(f"F1 Score: {f1:.4f}")
 
-        cm = confusion_matrix(y_test, y_pred)
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Normal", "Fraud"])
-        disp.plot(cmap="Blues"); plt.title("Confusion Matrix")
-        plt.savefig(os.path.join(perf_dir, "confusion_matrix.png")); plt.close()
-
+        # - metrics
         with open(os.path.join(perf_dir, "metrics_report.txt"), "w") as f:
             f.write(f"AUC-ROC Score: {auc_score:.4f}\n")
             f.write(f"Threshold: {best_thresh:.4f}\n")
@@ -101,7 +84,27 @@ def evaluate():
             f.write(f"F1 Score: {f1:.4f}\n")
             f.write("\nClassification Report:\n")
             f.write(classification_report(y_test, y_pred, target_names=["Normal", "Fraud"]))
+
+        # - raw data for graphing
+        pd.DataFrame({
+            "reconstruction_mse": mse,
+            "true_label": y_test,
+            "predicted_label": y_pred
+        }).to_csv(os.path.join(perf_dir, "raw_predictions.csv"), index=False)
+
+        pd.DataFrame({
+            "fpr": fpr,
+            "tpr": tpr,
+            "thresholds": thresholds
+        }).to_csv(os.path.join(perf_dir, "roc_data.csv"), index=False)
+
+        np.savetxt(os.path.join(perf_dir, "confusion_matrix.txt"), cm, fmt='%d')
+
+        pd.DataFrame({"mse": mse, "label": y_test}).to_csv(
+        os.path.join(perf_dir, "test_metrics.csv"), index=False)
+
         spinner.ok("✔")
+
 
 # =============================================================================
 

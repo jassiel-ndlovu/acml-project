@@ -1,6 +1,6 @@
 # Financial Fraud Detection using Autoencoder
 
-This project detects fraudulent financial behavior using an autoencoder trained on normal transaction data from the **Bank Account Fraud Dataset Suite (NeurIPS 2022)**.
+This project detects fraudulent financial behavior using an autoencoder trained on normal transaction data from the **Bank Account Fraud Dataset Suite (NeurIPS 2022)**. Download [here](https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022/data?select=Variant+IV.csv).
 
 Note that in dir ```/data/splits/``` you can find ```fraud.csv``` and ```normal.csv``` data points based on the ```Base.csv``` variant of the dataset. Note the following structure of the ```acml-project``` directory:
 
@@ -18,12 +18,12 @@ acml-project/
 │   │   └── cleaned_base.csv            # Preprocessing clean
 │   └── splits/
 │       ├── test/                       # Test data set (25%)
-│       │   └──
+│       │   └── test.csv
 │       ├── train/                      # Train data set (50%)
 │       │   └── fraud.csv               # Fraudulent data
 │       │   └── normal.csv              # Normal (non-fraudulent) data
 │       ├── validation/                 # Validation data set (25%)
-│           └──
+│           └── validation.csv
 ├── outputs/
 │   └── checkpoints/
 │       └── autoencoder.pt              

@@ -16,6 +16,8 @@ model:
   input_dim: 31     
   # 3 layers in Autoencoder, layer 1 (64 units), layer 2 (32 units) and layer 3 (16 units)
   hidden_dims: [64, 32, 16]
+  # Threshold learnt in training
+  threshold: 28.0885
 
 # Training parameters
 training:
