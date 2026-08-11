@@ -1,141 +1,69 @@
-import sys
+"""Step 3 - Train the autoencoder on normal data with early stopping (CPU or GPU)."""
 import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import sys
+import time
+import random
 import yaml
+import numpy as np
 import torch
 import torch.nn as nn
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import random
-from yaspin import yaspin
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.model_selection import train_test_split
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from model.autoencoder import Autoencoder
 
-# =============================================================================
-def load_config(path="config.yaml"):
-    with open(path, "r") as file:
-        return yaml.safe_load(file)
 
-def set_seed(seed):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+def set_seed(s):
+    random.seed(s); np.random.seed(s); torch.manual_seed(s); torch.cuda.manual_seed_all(s)
 
-# =============================================================================
 
-def train():
-    config = load_config()
-    set_seed(config["seed"])
+def main(cfg="config.yaml"):
+    c = yaml.safe_load(open(cfg))
+    set_seed(c["seed"])
+    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Device:", dev)
 
-    device = torch.device(config["device"] if torch.cuda.is_available() else "cpu")
+    proc = c["data"]["processed_dir"]
+    X = np.load(os.path.join(proc, "X_train.npy"))
+    tr, es = train_test_split(X, test_size=0.1, random_state=c["seed"])
+    loader = DataLoader(TensorDataset(torch.tensor(tr)),
+                        batch_size=c["training"]["batch_size"], shuffle=True)
+    es_t = torch.tensor(es).to(dev)
 
-    # - load data
-    with yaspin(text="Loading training and validation data...", color="green") as spinner:
-        train_data = pd.read_csv(config["data"]["normal_data"]).values.astype(np.float32)
-        val_df = pd.read_csv(config["data"]["validation_data"])
-        val_X = val_df.drop(columns=["fraud_bool"]).values.astype(np.float32)
-        val_y = val_df["fraud_bool"].values
-        spinner.ok("✔ ")
+    model = Autoencoder(X.shape[1], dropout=c["model"]["dropout"]).to(dev)
+    crit = nn.MSELoss()
+    opt = torch.optim.Adam(model.parameters(), lr=c["training"]["learning_rate"],
+                           weight_decay=c["training"]["weight_decay"])
 
-    # - call `Autoencoder`, setup model, Adam and dataloader
-    train_loader = DataLoader(TensorDataset(torch.tensor(train_data)), batch_size=config["training"]["batch_size"], shuffle=True)
-    input_dim = config["model"]["input_dim"]
-    model = Autoencoder(input_dim).to(device)
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["training"]["learning_rate"])
-
-    loss_history = []
-
-    loss_file = os.path.join(config["performance"]["train_path"], "losses.txt")
-    os.makedirs(config["performance"]["train_path"], exist_ok=True)
-
-    # - training
-    with open(loss_file, "w") as lf:
-        with yaspin(text="Training autoencoder...", color="green") as spinner:
-            model.train()
-            for epoch in range(config["training"]["num_epochs"]):
-                epoch_loss = 0
-                for (batch,) in train_loader:
-                    batch = batch.to(device)
-                    output = model(batch)
-                    loss = criterion(output, batch)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    epoch_loss += loss.item()
-                avg_loss = epoch_loss / len(train_loader)
-                loss_history.append(avg_loss)
-
-                # - CSV format: epoch,loss
-                lf.write(f"{epoch+1},{avg_loss:.6f}\n")  
-                spinner.write(f"Epoch {epoch+1}, Loss: {avg_loss:.4f}")
-            spinner.ok("✔ ")
-
-    # - model weights
-    with yaspin(text="Saving trained model...", color="green") as spinner:
-        os.makedirs(os.path.dirname(config["data"]["model_path"]), exist_ok=True)
-        torch.save(model.state_dict(), config["data"]["model_path"])
-        spinner.ok("✔ ")
-        print(f"Model saved to {config['data']['model_path']}")
-
-    # - evaluation and metrics
-    with yaspin(text="Evaluating on validation set...", color="green") as spinner:
+    best, bad, patience = np.inf, 0, c["training"]["patience"]
+    os.makedirs(os.path.dirname(c["data"]["model_path"]), exist_ok=True)
+    hist = []
+    t0 = time.time()
+    for ep in range(c["training"]["num_epochs"]):
+        model.train(); tot = 0.0
+        for (xb,) in loader:
+            xb = xb.to(dev); opt.zero_grad()
+            loss = crit(model(xb), xb); loss.backward(); opt.step()
+            tot += loss.item() * len(xb)
         model.eval()
         with torch.no_grad():
-            val_tensor = torch.tensor(val_X).to(device)
-            recon = model(val_tensor)
-            mse = ((val_tensor - recon) ** 2).mean(dim=1).cpu().numpy()
-        fpr, tpr, thresholds = roc_curve(val_y, mse)
-        auc_score = roc_auc_score(val_y, mse)
+            vloss = crit(model(es_t), es_t).item()
+        hist.append((ep + 1, tot / len(tr), vloss))
+        if vloss < best - 1e-6:
+            best, bad = vloss, 0
+            torch.save(model.state_dict(), c["data"]["model_path"])
+        else:
+            bad += 1
+        if (ep + 1) % 5 == 0 or ep == 0:
+            print(f"epoch {ep+1:02d}  train {tot/len(tr):.5f}  es {vloss:.5f}  (best {best:.5f})")
+        if bad >= patience:
+            print("early stop @", ep + 1); break
+    print("train time: %.1fs on %s" % (time.time() - t0, dev))
+    os.makedirs(c["performance"]["train_path"], exist_ok=True)
+    np.save(os.path.join(c["performance"]["train_path"], "loss_history.npy"), np.array(hist))
+    print("Saved model to", c["data"]["model_path"])
 
-        # - new threshold, overwrite `config.yaml`
-        best_thresh = thresholds[np.argmax(tpr - fpr)]
-        config["model"]["threshold"] = float(best_thresh)
-
-        with open("config.yaml", "w") as f:
-            yaml.safe_dump(config, f)
-
-        print(f"Saved best threshold to config.yaml: {best_thresh:.4f}")
-
-        spinner.ok("✔ ")
-
-    # - metrics (summary)
-    with yaspin(text="Saving performance metrics...", color="green") as spinner:
-        metrics_file = os.path.join(config["performance"]["train_path"], "metrics.txt")
-        with open(metrics_file, "w") as f:
-            f.write(f"AUC_ROC={auc_score:.6f}\n")
-            f.write(f"Best_Threshold={best_thresh:.6f}\n")
-            f.write(f"Final_Training_Loss={loss_history[-1]:.6f}\n")
-        spinner.ok("✔ ")
-    
-    # - MSEs of training data for later plotting
-    with yaspin(text="Computing and saving training MSEs...", color="green") as spinner:
-        # - re-load training data
-        train_data_df = pd.read_csv(config["data"]["normal_data"])
-        X_train = train_data_df.values.astype(np.float32)
-
-        # - all labels are supposed to be zero anyway
-        y_train = np.zeros(X_train.shape[0])
-
-        X_tensor = torch.tensor(X_train).to(device)
-        model.eval()
-        with torch.no_grad():
-            recon = model(X_tensor)
-            mse = ((X_tensor - recon) ** 2).mean(dim=1).cpu().numpy()
-
-        # - save MSE and labels (all 0s) to CSV for later plotting
-        perf_dir = config["performance"]["train_path"]
-        os.makedirs(perf_dir, exist_ok=True)
-        pd.DataFrame({"mse": mse, "label": y_train}).to_csv(
-            os.path.join(perf_dir, "train_metrics.csv"), index=False
-        )
-        spinner.ok("✔")
-
-# =============================================================================
 
 if __name__ == "__main__":
-    train()
+    main()

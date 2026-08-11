@@ -1,35 +1,30 @@
-# Paths
+# ---- Data paths ----
 data:
-  raw: data/raw/Base.csv
-  processed: data/processed/cleaned_base.csv
-  split_dir: data/splits
-  normal_data: data/splits/train/normal.csv
-  fraud_data: data/splits/train/fraud.csv
-  validation_data: data/splits/validation/validation.csv
-  test_data: data/splits/test/test.csv
-  checkpoint_path: outputs/checkpoints/autoencoder.pt
-  model_path: outputs/models/autoencoder_final.pt
+  raw: data/raw/Base.csv           # BAF "Base" variant (download from Kaggle)
+  split_dir: data/splits           # train.csv / val.csv / test.csv
+  processed_dir: data/processed    # X_*.npy, y_*.npy, preprocessor.json
+  model_path: outputs/autoencoder_final.pt
 
-# Model parameters
+# ---- Model ----
 model:
-  # There are 32 features in the data, but we drop the target column for Autoencoder
-  input_dim: 31     
-  # 3 layers in Autoencoder, layer 1 (64 units), layer 2 (32 units) and layer 3 (16 units)
+  input_dim: 57                    # set by preprocessing (one-hot expands 32 -> 57)
   hidden_dims: [64, 32, 16]
-  # Threshold learnt in training
-  threshold: 28.0885
+  dropout: 0.1
+  threshold: 0.0248                # learnt on validation (max-F1); auto-updated by evaluate.py
 
-# Training parameters
+# ---- Training ----
 training:
-  batch_size: 64
+  batch_size: 256
   learning_rate: 0.001
-  num_epochs: 100
+  weight_decay: 0.00001
+  num_epochs: 60
+  patience: 8                      # early-stopping patience on held-out normal loss
 
-# Performance
+# ---- Performance outputs ----
 performance:
-  test_path: performance/test
   train_path: performance/train
+  test_path: performance/test
+  fig_path: figures
 
-# Environment
+# ---- Environment ----
 seed: 42
-device: "cuda"

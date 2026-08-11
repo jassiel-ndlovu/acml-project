@@ -1,66 +1,35 @@
-import pandas as pd
-import yaml
+"""Step 1 - Split raw Base.csv into stratified 50/25/25 train/val/test.
+
+Splitting happens BEFORE any preprocessing so that scaling/imputation statistics
+are never fit on validation or test data (no leakage).
+"""
 import os
-from yaspin import yaspin
+import sys
+import yaml
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
-def load_config(path="config.yaml"):
-    with open(path, "r") as f:
-        return yaml.safe_load(f)
-    
-# =============================================================================
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from src.preprocessing import TARGET
 
-def split_data(input_path, output_dir, normal_path, fraud_path, test_path, val_path):
-    '''
-    First we will split the data for training, validation and test. 
-    We use the 50-25-25 split. That is, 50% of the dataset for training
-    25% for validation and the other 25% for testing. 
 
-    For training, we split the data into `normal` and `fraud` to train 
-    the autoencoder on the normal dataset.
-    '''
-    df = pd.read_csv(input_path)
+def main(cfg="config.yaml"):
+    c = yaml.safe_load(open(cfg))
+    seed = c["seed"]
+    df = pd.read_csv(c["data"]["raw"])
+    print(f"Loaded {df.shape}, fraud rate {100 * df[TARGET].mean():.4f}%")
 
-    # - 50-25-25 split
-    with yaspin(text="Splitting into train, val and test datasets...", color="white") as spinner:
-        train_df, temp_df = train_test_split(df, test_size=0.5, random_state=42, stratify=df["fraud_bool"])
-        val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42, stratify=temp_df["fraud_bool"])
-        spinner.ok("✔ ")
+    train_df, temp = train_test_split(df, test_size=0.5, random_state=seed, stratify=df[TARGET])
+    val_df, test_df = train_test_split(temp, test_size=0.5, random_state=seed, stratify=temp[TARGET])
 
-    # - save validation and test datasets
-    with yaspin(text="Saving datasets...", color="white") as spinner:
-        os.makedirs(output_dir, exist_ok=True)
-        val_df.to_csv(val_path, index=False)
-        test_df.to_csv(test_path, index=False)
-        print(f"Saved validation set to {val_path} ({len(val_df)} records)")
-        print(f"Saved test set to {test_path} ({len(test_df)} records)")
-        spinner.ok("✔ ")
+    out = c["data"]["split_dir"]
+    os.makedirs(out, exist_ok=True)
+    train_df.to_csv(os.path.join(out, "train.csv"), index=False)
+    val_df.to_csv(os.path.join(out, "val.csv"), index=False)
+    test_df.to_csv(os.path.join(out, "test.csv"), index=False)
+    print(f"train={len(train_df)}  val={len(val_df)}  test={len(test_df)}")
+    print(f"train-normal={int((train_df[TARGET] == 0).sum())}")
 
-    # - train data split (we drop the fraud_bool column)
-    with yaspin(text="Splitting training data...", color="white") as spinner:
-        normal = train_df[train_df["fraud_bool"] == 0].drop(columns=["fraud_bool"])
-        fraud = train_df[train_df["fraud_bool"] == 1].drop(columns=["fraud_bool"])
-        spinner.ok("✔ ")
-
-    # - save the fraud and normal dataset
-    with yaspin(text="Saving datasets...", color="white") as spinner:
-        os.makedirs(output_dir, exist_ok=True)
-        normal.to_csv(normal_path, index=False)
-        fraud.to_csv(fraud_path, index=False)
-        spinner.ok("✔ ")
-
-    print(f"Saved normal records to {normal_path} ({len(normal)} records)")
-    print(f"Saved fraudulent records to {fraud_path} ({len(fraud)} records)")
-
-# =============================================================================
 
 if __name__ == "__main__":
-    config = load_config()
-    split_data(
-        input_path=config["data"]["processed"],
-        output_dir=config["data"]["split_dir"],
-        normal_path=config["data"]["normal_data"],
-        fraud_path=config["data"]["fraud_data"],
-        test_path=config["data"]["test_data"],
-        val_path=config["data"]["validation_data"]
-    )
+    main()

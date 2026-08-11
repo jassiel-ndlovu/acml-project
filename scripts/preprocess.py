@@ -1,49 +1,38 @@
-import pandas as pd
-import yaml
+"""Step 2 - Fit the Preprocessor on train-normal and transform every split.
+
+Saves NumPy arrays consumed by training/evaluation, plus the fitted preprocessor.
+"""
 import os
-from yaspin import yaspin
+import sys
+import yaml
+import numpy as np
+import pandas as pd
 
-def load_config(path="config.yaml"):
-    with open(path, "r") as f:
-        return yaml.safe_load(f)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from src.preprocessing import Preprocessor, TARGET
 
-# =============================================================================
-# Read Preprocessing summary in the `visualise.ipnyb` file.
-# =============================================================================
 
-def preprocess_data(input_path, output_path):
-    with yaspin(text="Reading raw data...", color="white") as spinner:
-        df = pd.read_csv(input_path)
-        spinner.ok("✔ ")
+def main(cfg="config.yaml"):
+    c = yaml.safe_load(open(cfg))
+    sd = c["data"]["split_dir"]
+    train = pd.read_csv(os.path.join(sd, "train.csv"))
+    val = pd.read_csv(os.path.join(sd, "val.csv"))
+    test = pd.read_csv(os.path.join(sd, "test.csv"))
+    train_normal = train[train[TARGET] == 0].copy()
 
-    # - (1) encoding maps for  non-numerical features
-    category_maps = {
-        "payment_type": {"AA": 1, "AB": 2, "AC": 3, "AD": 4, "AE": 5},
-        "employment_status": {"CA": 1, "CB": 2, "CC": 3, "CD": 4, "CF": 5},
-        "housing_status": {"BA": 1, "BB": 2, "BC": 3, "BD": 4, "BE": 5},
-        "source": {"INTERNET": 1, "TELEAPP": 2},
-        "device_os": {"linux": 1, "windows": 2, "macintosh": 3, "x11": 4, "other": 5}
-    }
+    pre = Preprocessor().fit(train, train_normal)
+    print("Feature dim after encoding:", pre.input_dim)
 
-    with yaspin(text="Encoding categorical columns...", color="white") as spinner:
-        for col, mapping in category_maps.items():
-            if col in df.columns:
-                df[col] = df[col].map(mapping)
-        spinner.ok("✔ ")
+    proc = c["data"]["processed_dir"]
+    os.makedirs(proc, exist_ok=True)
+    np.save(os.path.join(proc, "X_train.npy"), pre.transform(train_normal).values.astype(np.float32))
+    np.save(os.path.join(proc, "X_val.npy"), pre.transform(val).values.astype(np.float32))
+    np.save(os.path.join(proc, "y_val.npy"), val[TARGET].values)
+    np.save(os.path.join(proc, "X_test.npy"), pre.transform(test).values.astype(np.float32))
+    np.save(os.path.join(proc, "y_test.npy"), test[TARGET].values)
+    pre.save(os.path.join(proc, "preprocessor.json"))
+    print("Saved processed arrays and preprocessor to", proc)
 
-    # - (2) fill in missing values with 0's
-    with yaspin(text="Filling missing values...", color="white") as spinner:
-        df.fillna(0, inplace=True)
-        spinner.ok("✔ ")
-
-    with yaspin(text="Saving preprocessed data...", color="white") as spinner:
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        df.to_csv(output_path, index=False)
-        spinner.ok("✔ ")
-        print(f"Preprocessed data saved to {output_path}")
-
-# =============================================================================
 
 if __name__ == "__main__":
-    config = load_config()
-    preprocess_data(config["data"]["raw"], config["data"]["processed"])
+    main()
